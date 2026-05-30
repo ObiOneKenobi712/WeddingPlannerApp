@@ -4,3 +4,7 @@ umożliwiać zarządzanie listą gości, budżetem, harmonogramem przygotowań o
 związanymi z organizacją wydarzenia.
 Projekt zostanie wykonany w technologii ASP.NET Core MVC z wykorzystaniem języka C#, Entity
 Framework Core oraz bazy danych SQLite lub SQL Server.
+
+## Funkcjonalnośc systemu
+Moduł listy gości
+- dodawanie gości 
