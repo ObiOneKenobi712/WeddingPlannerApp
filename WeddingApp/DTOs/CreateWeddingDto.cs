@@ -1,4 +1,6 @@
-﻿namespace WeddingApp.DTOs;
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace WeddingApp.DTOs;
 
 public class CreateWeddingDto
 {
@@ -7,3 +9,4 @@ public class CreateWeddingDto
     public DateTime Date { get; set; }
     public string Venue { get; set; } = "";   
 }
+
