@@ -64,8 +64,25 @@ public class GuestsService : IGuestsService
     {
         EnsureWeddingExists(weddingId);
 
-        var guest = _context.Guests.FirstOrDefault(g => g.WeddingModelId == weddingId && g.Id == guestId)
-                    ?? throw new KeyNotFoundException($"Gosc o ID {guestId} nie istnieje.");
+        var guest = _context.Guests.FirstOrDefault(g =>
+                        g.WeddingModelId == weddingId &&
+                        g.Id == guestId)
+                    ?? throw new KeyNotFoundException(
+                        $"Gosc o ID {guestId} nie istnieje.");
+
+        // REGUŁA BIZNESOWA:
+        // Nie można zmienić gościa tak, aby powstał duplikat.
+        var exists = _context.Guests.Any(g =>
+            g.WeddingModelId == weddingId &&
+            g.Id != guestId &&
+            g.FirstName.ToLower() == dto.FirstName.ToLower() &&
+            g.LastName.ToLower() == dto.LastName.ToLower());
+
+        if (exists)
+        {
+            throw new ApplicationException(
+                "Gosc o takim imieniu i nazwisku jest juz zapisany na to wesele.");
+        }
 
         guest.FirstName = dto.FirstName;
         guest.LastName = dto.LastName;

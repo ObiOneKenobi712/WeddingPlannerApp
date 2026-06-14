@@ -109,6 +109,17 @@ public class WeddingsService : IWeddingsService
         {
             throw new ApplicationException("Nie mozna usunac aktywnego wesela. Najpierw ustaw IsActive=false.");
         }
+        if (wedding.Guests.Any())
+        {
+            throw new ApplicationException(
+                "Nie mozna usunac wesela posiadajacego gosci.");
+        }
+
+        if (wedding.Expenses.Any())
+        {
+            throw new ApplicationException(
+                "Nie mozna usunac wesela posiadajacego wydatki.");
+        }
 
         wedding.IsDeleted = true;
         _context.SaveChanges();
