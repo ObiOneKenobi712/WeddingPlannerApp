@@ -23,7 +23,19 @@ public class GuestsService : IGuestsService
     {
         var wedding = GetWeddingOrThrow(weddingId);
 
-        var newId = wedding.Guests.Any() ? wedding.Guests.Max(g => g.Id) + 1 : 1;
+        var exists = wedding.Guests.Any(g =>
+            g.FirstName.ToLower() == dto.FirstName.ToLower() &&
+            g.LastName.ToLower() == dto.LastName.ToLower());
+
+        if (exists)
+        {
+            throw new ApplicationException(
+                "Gosc o takim imieniu i nazwisku jest juz zapisany na to wesele.");
+        }
+
+        var newId = wedding.Guests.Any()
+            ? wedding.Guests.Max(g => g.Id) + 1
+            : 1;
 
         var guest = new GuestModel
         {

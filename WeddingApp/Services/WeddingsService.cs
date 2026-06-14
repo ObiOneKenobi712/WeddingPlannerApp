@@ -71,12 +71,15 @@ public class WeddingsService : IWeddingsService
         var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id)
                       ?? throw new KeyNotFoundException($"Wesele o ID {id} nie istnieje.");
 
-        if (wedding.IsActive)
+        if (wedding.Guests.Any())
         {
-            throw new ApplicationException("Nie mozna usunac aktywnego wesela. Najpierw ustaw IsActive=false.");
+            throw new ApplicationException("Nie można usunąć wesela posiadającego gości.");
         }
 
-        WeddingData.Weddings.Remove(wedding);
+        if (wedding.Expenses.Any())
+        {
+            throw new ApplicationException("Nie można usunąć wesela posiadającego wydatki.");
+        }
     }
 }
 
