@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using WeddingApp.Models;
 using WeddingApp.DTOs;
-using WeddingApp.Data;
+using WeddingApp.Models;
+using WeddingApp.Services;
 
 namespace WeddingApp.Controllers;
 
@@ -9,76 +9,43 @@ namespace WeddingApp.Controllers;
 [Route("api/[controller]")]
 public class WeddingsController : ControllerBase
 {
-  
+    private readonly IWeddingsService _weddingsService;
+
+    public WeddingsController(IWeddingsService weddingsService)
+    {
+        _weddingsService = weddingsService;
+    }
 
     [HttpGet]
-    public IActionResult GetAll()
+    public ActionResult<IEnumerable<WeddingModel>> GetAll()
     {
-        return Ok(WeddingData.Weddings);
+        return Ok(_weddingsService.GetAll());
     }
-    
-    [HttpPost]
-    public IActionResult Create(CreateWeddingDto dto)
-    {
-        var wedding = new WeddingModel
-        {
-            Id = WeddingData.Weddings.Count + 1,
-            BrideName = dto.BrideName,
-            GroomName = dto.GroomName,
-            Date = dto.Date,
-            Venue = dto.Venue,
-            IsActive = true
-        };
 
-        WeddingData.Weddings.Add(wedding);
-
-        return Ok(wedding);
-    }
-    
     [HttpGet("{id}")]
-    public IActionResult GetById(int id)
+    public ActionResult<WeddingModel> GetById(int id)
     {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        return Ok(wedding);
+        return Ok(_weddingsService.GetById(id));
     }
-    
+
+    [HttpPost]
+    public ActionResult Create(CreateWeddingDto dto)
+    {
+        var newId = _weddingsService.Create(dto);
+        return CreatedAtAction(nameof(GetById), new { id = newId }, dto);
+    }
+
     [HttpPut("{id}")]
-    public IActionResult Update(int id, CreateWeddingDto dto)
+    public ActionResult Update(int id, UpdateWeddingDto dto)
     {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        wedding.BrideName = dto.BrideName;
-        wedding.GroomName = dto.GroomName;
-        wedding.Date = dto.Date;
-        wedding.Venue = dto.Venue;
-
-        return Ok(wedding);
-    }
-    
-    [HttpDelete("{id}")]
-    public IActionResult Delete(int id)
-    {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        WeddingData.Weddings.Remove(wedding);
-
+        _weddingsService.Update(id, dto);
         return NoContent();
     }
-    
+
+    [HttpDelete("{id}")]
+    public ActionResult Delete(int id)
+    {
+        _weddingsService.Delete(id);
+        return NoContent();
+    }
 }

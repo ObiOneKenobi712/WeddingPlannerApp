@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using WeddingApp.Models;
 using WeddingApp.DTOs;
-using WeddingApp.Data;
+using WeddingApp.Models;
+using WeddingApp.Services;
 
 namespace WeddingApp.Controllers;
 
@@ -9,105 +9,43 @@ namespace WeddingApp.Controllers;
 [Route("api/[controller]")]
 public class GuestsController : ControllerBase
 {
+    private readonly IGuestsService _guestsService;
+
+    public GuestsController(IGuestsService guestsService)
+    {
+        _guestsService = guestsService;
+    }
+
     [HttpGet("{id}/guests")]
-    public IActionResult GetGuests(int id)
+    public ActionResult<IEnumerable<GuestModel>> GetGuests(int id)
     {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        return Ok(wedding.Guests);
-    }
-    
-    [HttpPost("{id}/guests")]
-    public IActionResult AddGuest(int id, CreateGuestDto dto)
-    {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        var guest = new GuestModel
-        {
-            Id = wedding.Guests.Count + 1,
-            FirstName = dto.FirstName,
-            LastName = dto.LastName,
-            IsConfirmed = dto.IsConfirmed
-        };
-
-        wedding.Guests.Add(guest);
-
-        return Ok(guest);
-    }
-    
-    [HttpPut("{id}/guests/{guestId}")]
-    public IActionResult UpdateGuest(int id, int guestId, CreateGuestDto dto)
-    {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        var guest = wedding.Guests.FirstOrDefault(g => g.Id == guestId);
-
-        if (guest == null)
-        {
-            return NotFound();
-        }
-
-        guest.FirstName = dto.FirstName;
-        guest.LastName = dto.LastName;
-        guest.IsConfirmed = dto.IsConfirmed;
-
-        return Ok(guest);
-    }
-    
-    [HttpDelete("{id}/guests/{guestId}")]
-    public IActionResult RemoveGuest(int id, int guestId)
-    {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        var guest = wedding.Guests.FirstOrDefault(g => g.Id == guestId);
-
-        if (guest == null)
-        {
-            return NotFound();
-        }
-
-        wedding.Guests.Remove(guest);
-
-        return NoContent();
+        return Ok(_guestsService.GetAll(id));
     }
 
     [HttpGet("{id}/guests/{guestId}")]
-    public IActionResult GetGuestById(int id, int guestId)
+    public ActionResult<GuestModel> GetGuestById(int id, int guestId)
     {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
+        return Ok(_guestsService.GetById(id, guestId));
+    }
 
-        if (wedding == null)
-        {
-            return NotFound();
-        }
+    [HttpPost("{id}/guests")]
+    public ActionResult AddGuest(int id, CreateGuestDto dto)
+    {
+        var newId = _guestsService.Create(id, dto);
+        return CreatedAtAction(nameof(GetGuestById), new { id, guestId = newId }, dto);
+    }
 
-        var guest = wedding.Guests.FirstOrDefault(g => g.Id == guestId);
+    [HttpPut("{id}/guests/{guestId}")]
+    public ActionResult UpdateGuest(int id, int guestId, UpdateGuestDto dto)
+    {
+        _guestsService.Update(id, guestId, dto);
+        return NoContent();
+    }
 
-        if (guest == null)
-        {
-            return NotFound();
-        }
-
-        return Ok(guest);
+    [HttpDelete("{id}/guests/{guestId}")]
+    public ActionResult RemoveGuest(int id, int guestId)
+    {
+        _guestsService.Delete(id, guestId);
+        return NoContent();
     }
 }

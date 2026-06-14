@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using WeddingApp.Models;
 using WeddingApp.DTOs;
-using WeddingApp.Data;
+using WeddingApp.Models;
+using WeddingApp.Services;
 
 namespace WeddingApp.Controllers;
 
@@ -9,66 +9,31 @@ namespace WeddingApp.Controllers;
 [Route("api/[controller]")]
 public class BudgetsController : ControllerBase
 {
-    
+    private readonly IBudgetsService _budgetsService;
+
+    public BudgetsController(IBudgetsService budgetsService)
+    {
+        _budgetsService = budgetsService;
+    }
+
     [HttpPost("{id}/budget")]
-    public IActionResult CreateBudget(int id, CreateBudgetDto dto)
+    public ActionResult<BudgetModel> CreateBudget(int id, CreateBudgetDto dto)
     {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        wedding.Budget = new BudgetModel
-        {
-            TotalBudget = dto.TotalBudget,
-            Spent = 0,
-            Remaining = dto.TotalBudget
-        };
-
-        return Ok(wedding.Budget);
+        var created = _budgetsService.Create(id, dto);
+        return CreatedAtAction(nameof(GetBudget), new { id }, created);
     }
-    
-    
+
     [HttpGet("{id}/budget")]
-    public IActionResult GetBudget(int id)
+    public ActionResult<BudgetModel> GetBudget(int id)
     {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        if (wedding.Budget == null)
-        {
-            return NotFound("Budget not set.");
-        }
-
-        return Ok(wedding.Budget);
+        return Ok(_budgetsService.Get(id));
     }
-    
-    
+
     [HttpPut("{id}/budget")]
-    public IActionResult UpdateBudget(int id, CreateBudgetDto dto)
+    public ActionResult<BudgetModel> UpdateBudget(int id, UpdateBudgetDto dto)
     {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        if (wedding.Budget == null)
-        {
-            return NotFound("Budget not set.");
-        }
-
-        wedding.Budget.TotalBudget = dto.TotalBudget;
-        wedding.Budget.Remaining = wedding.Budget.TotalBudget - wedding.Budget.Spent;
-
-        return Ok(wedding.Budget);
+        var updated = _budgetsService.Update(id, dto);
+        return Ok(updated);
     }
 
 }
