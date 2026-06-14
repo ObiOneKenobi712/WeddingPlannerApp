@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using WeddingApp.Models;
 using WeddingApp.DTOs;
-using WeddingApp.Data;
+using WeddingApp.Models;
+using WeddingApp.Services;
 
 namespace WeddingApp.Controllers;
 
@@ -9,107 +9,69 @@ namespace WeddingApp.Controllers;
 [Route("api/[controller]")]
 public class ExpensesController : ControllerBase
 {
+    private readonly IExpensesService _expensesService;
+
+    public ExpensesController(IExpensesService expensesService)
+    {
+        _expensesService = expensesService;
+    }
+
+    /// <summary>
+    /// Pobiera liste wszystkich wydatków przypisanych do wskazanego wesela.
+    /// </summary>
+    /// <param name="id">Identyfikator wesela</param>
+    /// <returns>Lista wydatków</returns>
+    /// <response code="200">Zwraca liste wydatków</response>
+    /// <response code="404">Nie znaleziono wesela o podanym identyfikatorze</response>
     [HttpGet("{id}/expenses")]
-    public IActionResult GetExpenses(int id)
+    public ActionResult<IEnumerable<ExpenseModel>> GetExpenses(int id)
     {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        return Ok(wedding.Expenses);
+        return Ok(_expensesService.GetAll(id));
     }
-    
-    
+
+    /// <summary>
+    /// Dodaje nowy wydatek do wskazanego wesela.
+    /// </summary>
+    /// <param name="id">Identyfikator wesela</param>
+    /// <param name="dto">Dane nowego wydatku</param>
+    /// <returns>Nowo utworzony wydatek</returns>
+    /// <response code="201">Wydatek został dodany pomyślnie</response>
+    /// <response code="400">Błędne dane lub przekroczenie budżetu wesela</response>
+    /// <response code="404">Nie znaleziono wesela o podanym identyfikatorze</response>
     [HttpPost("{id}/expenses")]
-    public IActionResult AddExpense(int id, CreateExpenseDto dto)
+    public ActionResult AddExpense(int id, CreateExpenseDto dto)
     {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        var expense = new ExpenseModel
-        {
-            Id = wedding.Expenses.Count + 1,
-            Name = dto.Name,
-            Cost = dto.Cost
-        };
-
-        wedding.Expenses.Add(expense);
-
-        if (wedding.Budget != null)
-        {
-            wedding.Budget.Spent += expense.Cost;
-            wedding.Budget.Remaining = wedding.Budget.TotalBudget - wedding.Budget.Spent;
-        }
-
-        return Ok(expense);
+        var newId = _expensesService.Create(id, dto);
+        return CreatedAtAction(nameof(GetExpenses), new { id, expenseId = newId }, dto);
     }
-    
-    
+
+    /// <summary>
+    /// Aktualizuje dane istniejącego wydatku przypisanego do wesela.
+    /// </summary>
+    /// <param name="id">Identyfikator wesela</param>
+    /// <param name="expenseId">Identyfikator wydatku</param>
+    /// <param name="dto">Nowe dane wydatku</param>
+    /// <response code="204">Wydatek został zaktualizowany pomyślnie</response>
+    /// <response code="400">Błędne dane lub przekroczenie budżetu wesela</response>
+    /// <response code="404">Nie znaleziono wesela lub wydatku</response>
     [HttpPut("{id}/expenses/{expenseId}")]
-    public IActionResult UpdateExpense(int id, int expenseId, CreateExpenseDto dto)
+    public ActionResult UpdateExpense(int id, int expenseId, UpdateExpenseDto dto)
     {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        var expense = wedding.Expenses.FirstOrDefault(e => e.Id == expenseId);
-
-        if (expense == null)
-        {
-            return NotFound();
-        }
-
-        var oldCost = expense.Cost;
-
-        expense.Name = dto.Name;
-        expense.Cost = dto.Cost;
-
-        if (wedding.Budget != null)
-        {
-            wedding.Budget.Spent = wedding.Budget.Spent - oldCost + expense.Cost;
-            wedding.Budget.Remaining = wedding.Budget.TotalBudget - wedding.Budget.Spent;
-        }
-
-        return Ok(expense);
-    }
-    
-    
-    [HttpDelete("{id}/expenses/{expenseId}")]
-    public IActionResult RemoveExpense(int id, int expenseId)
-    {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        var expense = wedding.Expenses.FirstOrDefault(e => e.Id == expenseId);
-
-        if (expense == null)
-        {
-            return NotFound();
-        }
-
-        if (wedding.Budget != null)
-        {
-            wedding.Budget.Spent -= expense.Cost;
-            wedding.Budget.Remaining = wedding.Budget.TotalBudget - wedding.Budget.Spent;
-        }
-
-        wedding.Expenses.Remove(expense);
-
+        _expensesService.Update(id, expenseId, dto);
         return NoContent();
     }
-    
+
+    /// <summary>
+    /// Usuwa wydatek przypisany do wesela.
+    /// </summary>
+    /// <param name="id">Identyfikator wesela</param>
+    /// <param name="expenseId">Identyfikator wydatku do usunięcia</param>
+    /// <response code="204">Wydatek został usunięty pomyślnie</response>
+    /// <response code="404">Nie znaleziono wesela lub wydatku</response>
+    [HttpDelete("{id}/expenses/{expenseId}")]
+    public ActionResult RemoveExpense(int id, int expenseId)
+    {
+        _expensesService.Delete(id, expenseId);
+        return NoContent();
+    }
 }

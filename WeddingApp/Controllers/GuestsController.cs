@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using WeddingApp.Models;
 using WeddingApp.DTOs;
-using WeddingApp.Data;
+using WeddingApp.Models;
+using WeddingApp.Services;
 
 namespace WeddingApp.Controllers;
 
@@ -9,105 +9,77 @@ namespace WeddingApp.Controllers;
 [Route("api/[controller]")]
 public class GuestsController : ControllerBase
 {
+    private readonly IGuestsService _guestsService;
+
+    public GuestsController(IGuestsService guestsService)
+    {
+        _guestsService = guestsService;
+    }
+
+    /// <summary>
+    /// Pobiera liste wszystkich gości dla wesela.
+    /// </summary>
+    /// <param name="id">Identyfikator wesela</param>
+    /// <returns>Lista gości na weselu</returns>
     [HttpGet("{id}/guests")]
-    public IActionResult GetGuests(int id)
+    public ActionResult<IEnumerable<GuestModel>> GetGuests(int id)
     {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        return Ok(wedding.Guests);
+        return Ok(_guestsService.GetAll(id));
     }
-    
+
+    /// <summary>
+    /// Pobiera szczegóły konkretnego gościa weselnego.
+    /// </summary>
+    /// <param name="id">Identyfikator wesela</param>
+    /// <param name="guestId">Identyfikator gościa</param>
+    /// <returns>Szczegóły wybranego gościa</returns>
+    [HttpGet("{id}/guests/{guestId}")]
+    public ActionResult<GuestModel> GetGuestById(int id, int guestId)
+    {
+        return Ok(_guestsService.GetById(id, guestId));
+    }
+
+    /// <summary>
+    /// Dodaje nowego gościa na wesele.
+    /// </summary>
+    /// <param name="id">Identyfikator wesela</param>
+    /// <param name="dto">Dane nowego gościa weselnego</param>
+    /// <returns>Nowy gość</returns>
+    /// <response code="201">Gość został dodany pomyślnie</response>
+    /// <response code="400">Błąd walidacji lub duplikat gościa</response>
     [HttpPost("{id}/guests")]
-    public IActionResult AddGuest(int id, CreateGuestDto dto)
+    public ActionResult AddGuest(int id, CreateGuestDto dto)
     {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        var guest = new GuestModel
-        {
-            Id = wedding.Guests.Count + 1,
-            FirstName = dto.FirstName,
-            LastName = dto.LastName,
-            IsConfirmed = dto.IsConfirmed
-        };
-
-        wedding.Guests.Add(guest);
-
-        return Ok(guest);
+        var newId = _guestsService.Create(id, dto);
+        return CreatedAtAction(nameof(GetGuestById), new { id, guestId = newId }, dto);
     }
-    
+
+    /// <summary>
+    /// Aktualizuje dane gościa (imię, nazwisko, potwierdzenie obecności).
+    /// </summary>
+    /// <param name="id">Identyfikator wesela</param>
+    /// <param name="guestId">Identyfikator gościa</param>
+    /// <param name="dto">Nowe dane gościa</param>
+    /// <response code="204">Gość został zaktualizowany pomyślnie</response>
+    /// <response code="404">Wesele lub gość nie znaleziony</response>
     [HttpPut("{id}/guests/{guestId}")]
-    public IActionResult UpdateGuest(int id, int guestId, CreateGuestDto dto)
+    public ActionResult UpdateGuest(int id, int guestId, UpdateGuestDto dto)
     {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        var guest = wedding.Guests.FirstOrDefault(g => g.Id == guestId);
-
-        if (guest == null)
-        {
-            return NotFound();
-        }
-
-        guest.FirstName = dto.FirstName;
-        guest.LastName = dto.LastName;
-        guest.IsConfirmed = dto.IsConfirmed;
-
-        return Ok(guest);
-    }
-    
-    [HttpDelete("{id}/guests/{guestId}")]
-    public IActionResult RemoveGuest(int id, int guestId)
-    {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        var guest = wedding.Guests.FirstOrDefault(g => g.Id == guestId);
-
-        if (guest == null)
-        {
-            return NotFound();
-        }
-
-        wedding.Guests.Remove(guest);
-
+        _guestsService.Update(id, guestId, dto);
         return NoContent();
     }
 
-    [HttpGet("{id}/guests/{guestId}")]
-    public IActionResult GetGuestById(int id, int guestId)
+    /// <summary>
+    /// Usuwa gościa z listy wesela.
+    /// </summary>
+    /// <param name="id">Identyfikator wesela</param>
+    /// <param name="guestId">Identyfikator gościa do usunięcia</param>
+    /// <response code="204">Gość został usunięty pomyślnie</response>
+    /// <response code="404">Wesele lub gość nie znaleziony</response>
+    [HttpDelete("{id}/guests/{guestId}")]
+    public ActionResult RemoveGuest(int id, int guestId)
     {
-        var wedding = WeddingData.Weddings.FirstOrDefault(w => w.Id == id);
-
-        if (wedding == null)
-        {
-            return NotFound();
-        }
-
-        var guest = wedding.Guests.FirstOrDefault(g => g.Id == guestId);
-
-        if (guest == null)
-        {
-            return NotFound();
-        }
-
-        return Ok(guest);
+        _guestsService.Delete(id, guestId);
+        return NoContent();
     }
 }

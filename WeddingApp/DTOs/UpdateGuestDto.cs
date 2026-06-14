@@ -1,8 +1,8 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace WeddingApp.DTOs;
 
-public class CreateGuestDto
+public class UpdateGuestDto
 {
     [Required(ErrorMessage = "Imie goscia jest wymagane.")]
     [StringLength(50, ErrorMessage = "Imie goscia nie moze przekraczac 50 znakow.")]
@@ -14,3 +14,4 @@ public class CreateGuestDto
 
     public bool IsConfirmed { get; set; }
 }
+
