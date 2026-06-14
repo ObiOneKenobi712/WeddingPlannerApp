@@ -18,7 +18,7 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Soft delete filter for the main aggregate.
+        // Filtr logicznego usuwania dla głównej encji
         modelBuilder.Entity<WeddingModel>().HasQueryFilter(w => !w.IsDeleted);
 
         modelBuilder.Entity<WeddingModel>()
