@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using WeddingApp.Data;
 using WeddingApp.DTOs;
 using WeddingApp.Models;
@@ -6,74 +7,90 @@ namespace WeddingApp.Services;
 
 public class GuestsService : IGuestsService
 {
+    private readonly AppDbContext _context;
+
+    public GuestsService(AppDbContext context)
+    {
+        _context = context;
+    }
+
     public IEnumerable<GuestModel> GetAll(int weddingId)
     {
-        return GetWeddingOrThrow(weddingId).Guests;
+        EnsureWeddingExists(weddingId);
+
+        return _context.Guests
+            .Where(g => g.WeddingModelId == weddingId)
+            .OrderBy(g => g.Id)
+            .ToList();
     }
 
     public GuestModel GetById(int weddingId, int guestId)
     {
-        var wedding = GetWeddingOrThrow(weddingId);
+        EnsureWeddingExists(weddingId);
 
-        return wedding.Guests.FirstOrDefault(g => g.Id == guestId)
+        return _context.Guests.FirstOrDefault(g => g.WeddingModelId == weddingId && g.Id == guestId)
                ?? throw new KeyNotFoundException($"Gosc o ID {guestId} nie istnieje.");
     }
 
     public int Create(int weddingId, CreateGuestDto dto)
     {
-        var wedding = GetWeddingOrThrow(weddingId);
+        EnsureWeddingExists(weddingId);
 
-        var exists = wedding.Guests.Any(g =>
+        var exists = _context.Guests.Any(g =>
+            g.WeddingModelId == weddingId &&
             g.FirstName.ToLower() == dto.FirstName.ToLower() &&
             g.LastName.ToLower() == dto.LastName.ToLower());
 
         if (exists)
         {
-            throw new ApplicationException(
-                "Gosc o takim imieniu i nazwisku jest juz zapisany na to wesele.");
+            throw new ApplicationException("Gosc o takim imieniu i nazwisku jest juz zapisany na to wesele.");
         }
-
-        var newId = wedding.Guests.Any()
-            ? wedding.Guests.Max(g => g.Id) + 1
-            : 1;
 
         var guest = new GuestModel
         {
-            Id = newId,
             FirstName = dto.FirstName,
             LastName = dto.LastName,
-            IsConfirmed = dto.IsConfirmed
+            IsConfirmed = dto.IsConfirmed,
+            WeddingModelId = weddingId
         };
 
-        wedding.Guests.Add(guest);
+        _context.Guests.Add(guest);
+        _context.SaveChanges();
 
         return guest.Id;
     }
 
     public void Update(int weddingId, int guestId, UpdateGuestDto dto)
     {
-        var wedding = GetWeddingOrThrow(weddingId);
-        var guest = wedding.Guests.FirstOrDefault(g => g.Id == guestId)
+        EnsureWeddingExists(weddingId);
+
+        var guest = _context.Guests.FirstOrDefault(g => g.WeddingModelId == weddingId && g.Id == guestId)
                     ?? throw new KeyNotFoundException($"Gosc o ID {guestId} nie istnieje.");
 
         guest.FirstName = dto.FirstName;
         guest.LastName = dto.LastName;
         guest.IsConfirmed = dto.IsConfirmed;
+
+        _context.SaveChanges();
     }
 
     public void Delete(int weddingId, int guestId)
     {
-        var wedding = GetWeddingOrThrow(weddingId);
-        var guest = wedding.Guests.FirstOrDefault(g => g.Id == guestId)
+        EnsureWeddingExists(weddingId);
+
+        var guest = _context.Guests.FirstOrDefault(g => g.WeddingModelId == weddingId && g.Id == guestId)
                     ?? throw new KeyNotFoundException($"Gosc o ID {guestId} nie istnieje.");
 
-        wedding.Guests.Remove(guest);
+        _context.Guests.Remove(guest);
+        _context.SaveChanges();
     }
 
-    private static WeddingModel GetWeddingOrThrow(int weddingId)
+    private void EnsureWeddingExists(int weddingId)
     {
-        return WeddingData.Weddings.FirstOrDefault(w => w.Id == weddingId)
-               ?? throw new KeyNotFoundException($"Wesele o ID {weddingId} nie istnieje.");
+        var exists = _context.Weddings.AsNoTracking().Any(w => w.Id == weddingId);
+        if (!exists)
+        {
+            throw new KeyNotFoundException($"Wesele o ID {weddingId} nie istnieje.");
+        }
     }
 }
-

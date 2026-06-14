@@ -16,18 +16,29 @@ public class WeddingsController : ControllerBase
         _weddingsService = weddingsService;
     }
 
+    /// <summary>
+    /// Pobiera stronicowana liste wesel.
+    /// </summary>
+    /// <param name="pageNumber">Numer strony (domyslnie 1)</param>
+    /// <param name="pageSize">Liczba elementow na stronie (domyslnie 5)</param>
     [HttpGet]
-    public ActionResult<IEnumerable<WeddingModel>> GetAll()
+    public ActionResult<IEnumerable<WeddingModel>> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 5)
     {
-        return Ok(_weddingsService.GetAll());
+        return Ok(_weddingsService.GetAll(pageNumber, pageSize));
     }
 
+    /// <summary>
+    /// Pobiera wesele po identyfikatorze.
+    /// </summary>
     [HttpGet("{id}")]
     public ActionResult<WeddingModel> GetById(int id)
     {
         return Ok(_weddingsService.GetById(id));
     }
 
+    /// <summary>
+    /// Tworzy nowe wesele.
+    /// </summary>
     [HttpPost]
     public ActionResult Create(CreateWeddingDto dto)
     {
@@ -35,6 +46,9 @@ public class WeddingsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = newId }, dto);
     }
 
+    /// <summary>
+    /// Aktualizuje date, miejsce i status aktywnosci wesela.
+    /// </summary>
     [HttpPut("{id}")]
     public ActionResult Update(int id, UpdateWeddingDto dto)
     {
@@ -42,6 +56,9 @@ public class WeddingsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Usuwa wesele logicznie (Soft Delete).
+    /// </summary>
     [HttpDelete("{id}")]
     public ActionResult Delete(int id)
     {

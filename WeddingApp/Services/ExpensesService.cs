@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using WeddingApp.Data;
 using WeddingApp.DTOs;
 using WeddingApp.Models;
@@ -6,91 +7,113 @@ namespace WeddingApp.Services;
 
 public class ExpensesService : IExpensesService
 {
+    private readonly AppDbContext _context;
+
+    public ExpensesService(AppDbContext context)
+    {
+        _context = context;
+    }
+
     public IEnumerable<ExpenseModel> GetAll(int weddingId)
     {
-        var wedding = GetWeddingOrThrow(weddingId);
-        return wedding.Expenses;
+        EnsureWeddingExists(weddingId);
+
+        return _context.Expenses
+            .Where(e => e.WeddingModelId == weddingId)
+            .OrderBy(e => e.Id)
+            .ToList();
     }
 
     public int Create(int weddingId, CreateExpenseDto dto)
     {
-        var wedding = GetWeddingOrThrow(weddingId);
-        
-        if (wedding.Budget != null &&
-            wedding.Budget.Spent + dto.Cost > wedding.Budget.TotalBudget)
-        {
-            throw new ApplicationException(
-                "Nie mozna dodac wydatku, bo przekroczylby budzet wesela.");
-        }
+        var wedding = GetWeddingWithBudgetOrThrow(weddingId);
 
-        var newId = wedding.Expenses.Any()
-            ? wedding.Expenses.Max(e => e.Id) + 1
-            : 1;
+        if (wedding.Budget != null && wedding.Budget.Spent + dto.Cost > wedding.Budget.TotalBudget)
+        {
+            throw new ApplicationException("Nie mozna dodac wydatku, bo przekroczylby budzet wesela.");
+        }
 
         var expense = new ExpenseModel
         {
-            Id = newId,
             Name = dto.Name,
-            Cost = dto.Cost
+            Cost = dto.Cost,
+            WeddingModelId = weddingId
         };
 
-        wedding.Expenses.Add(expense);
+        _context.Expenses.Add(expense);
+        _context.SaveChanges();
 
-        UpdateBudgetAfterExpenseChange(wedding);
+        RecalculateBudget(weddingId);
 
         return expense.Id;
     }
 
     public void Update(int weddingId, int expenseId, UpdateExpenseDto dto)
     {
-        var wedding = GetWeddingOrThrow(weddingId);
+        var wedding = GetWeddingWithBudgetOrThrow(weddingId);
 
-        var expense = wedding.Expenses.FirstOrDefault(e => e.Id == expenseId)
+        var expense = _context.Expenses.FirstOrDefault(e => e.WeddingModelId == weddingId && e.Id == expenseId)
             ?? throw new KeyNotFoundException($"Wydatek o ID {expenseId} nie istnieje.");
 
         var oldCost = expense.Cost;
 
-        // REGUŁA BIZNESOWA:
-        // Nie można zaktualizować wydatku, jeśli po zmianie przekroczy budżet.
-        if (wedding.Budget != null &&
-            wedding.Budget.Spent - oldCost + dto.Cost > wedding.Budget.TotalBudget)
+        if (wedding.Budget != null && wedding.Budget.Spent - oldCost + dto.Cost > wedding.Budget.TotalBudget)
         {
-            throw new ApplicationException(
-                "Nie mozna zaktualizowac wydatku, bo przekroczylby budzet wesela.");
+            throw new ApplicationException("Nie mozna zaktualizowac wydatku, bo przekroczylby budzet wesela.");
         }
 
         expense.Name = dto.Name;
         expense.Cost = dto.Cost;
 
-        UpdateBudgetAfterExpenseChange(wedding);
+        _context.SaveChanges();
+
+        RecalculateBudget(weddingId);
     }
 
     public void Delete(int weddingId, int expenseId)
     {
-        var wedding = GetWeddingOrThrow(weddingId);
+        EnsureWeddingExists(weddingId);
 
-        var expense = wedding.Expenses.FirstOrDefault(e => e.Id == expenseId)
+        var expense = _context.Expenses.FirstOrDefault(e => e.WeddingModelId == weddingId && e.Id == expenseId)
             ?? throw new KeyNotFoundException($"Wydatek o ID {expenseId} nie istnieje.");
 
-        wedding.Expenses.Remove(expense);
+        _context.Expenses.Remove(expense);
+        _context.SaveChanges();
 
-        UpdateBudgetAfterExpenseChange(wedding);
+        RecalculateBudget(weddingId);
     }
 
-    private static WeddingModel GetWeddingOrThrow(int weddingId)
+    private WeddingModel GetWeddingWithBudgetOrThrow(int weddingId)
     {
-        return WeddingData.Weddings.FirstOrDefault(w => w.Id == weddingId)
+        return _context.Weddings
+            .Include(w => w.Budget)
+            .FirstOrDefault(w => w.Id == weddingId)
             ?? throw new KeyNotFoundException($"Wesele o ID {weddingId} nie istnieje.");
     }
 
-    private static void UpdateBudgetAfterExpenseChange(WeddingModel wedding)
+    private void EnsureWeddingExists(int weddingId)
     {
-        if (wedding.Budget == null)
+        var exists = _context.Weddings.AsNoTracking().Any(w => w.Id == weddingId);
+        if (!exists)
+        {
+            throw new KeyNotFoundException($"Wesele o ID {weddingId} nie istnieje.");
+        }
+    }
+
+    private void RecalculateBudget(int weddingId)
+    {
+        var budget = _context.Budgets.FirstOrDefault(b => b.WeddingModelId == weddingId);
+        if (budget == null)
         {
             return;
         }
 
-        wedding.Budget.Spent = wedding.Expenses.Sum(e => e.Cost);
-        wedding.Budget.Remaining = wedding.Budget.TotalBudget - wedding.Budget.Spent;
+        var spent = _context.Expenses
+            .Where(e => e.WeddingModelId == weddingId)
+            .Sum(e => e.Cost);
+
+        budget.Spent = spent;
+        budget.Remaining = budget.TotalBudget - budget.Spent;
+        _context.SaveChanges();
     }
 }

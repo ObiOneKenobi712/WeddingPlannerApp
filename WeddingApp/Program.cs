@@ -1,23 +1,62 @@
+using Microsoft.EntityFrameworkCore;
+using WeddingApp.Data;
 using WeddingApp.Middleware;
+using WeddingApp.Models;
 using WeddingApp.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    var xmlFilename = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
+});
 
-builder.Services.AddSingleton<IWeddingsService, WeddingsService>();
-builder.Services.AddSingleton<IGuestsService, GuestsService>();
-builder.Services.AddSingleton<IExpensesService, ExpensesService>();
-builder.Services.AddSingleton<IBudgetsService, BudgetsService>();
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
+
+builder.Services.AddScoped<IWeddingsService, WeddingsService>();
+builder.Services.AddScoped<IGuestsService, GuestsService>();
+builder.Services.AddScoped<IExpensesService, ExpensesService>();
+builder.Services.AddScoped<IBudgetsService, BudgetsService>();
 
 var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-// Configure the HTTP request pipeline.
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    context.Database.EnsureCreated();
+
+    if (!context.Weddings.Any())
+    {
+        context.Weddings.AddRange(
+            new WeddingModel
+            {
+                BrideName = "Anna",
+                GroomName = "Jan",
+                Date = new DateTime(2027, 6, 15),
+                Venue = "Hotel Victoria",
+                IsActive = true,
+                IsDeleted = false
+            },
+            new WeddingModel
+            {
+                BrideName = "Maria",
+                GroomName = "Piotr",
+                Date = new DateTime(2027, 8, 20),
+                Venue = "Palac Jablonna",
+                IsActive = true,
+                IsDeleted = false
+            }
+        );
+        context.SaveChanges();
+    }
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -25,7 +64,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
 
 app.MapControllers();

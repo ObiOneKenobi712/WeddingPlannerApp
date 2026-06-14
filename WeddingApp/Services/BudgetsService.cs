@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using WeddingApp.Data;
 using WeddingApp.DTOs;
 using WeddingApp.Models;
@@ -6,55 +7,71 @@ namespace WeddingApp.Services;
 
 public class BudgetsService : IBudgetsService
 {
+    private readonly AppDbContext _context;
+
+    public BudgetsService(AppDbContext context)
+    {
+        _context = context;
+    }
+
     public BudgetModel Get(int weddingId)
     {
-        var wedding = GetWeddingOrThrow(weddingId);
-        return wedding.Budget ?? throw new KeyNotFoundException("Budzet dla tego wesela nie jest ustawiony.");
+        EnsureWeddingExists(weddingId);
+
+        return _context.Budgets.FirstOrDefault(b => b.WeddingModelId == weddingId)
+               ?? throw new KeyNotFoundException("Budzet dla tego wesela nie jest ustawiony.");
     }
 
     public BudgetModel Create(int weddingId, CreateBudgetDto dto)
     {
-        var wedding = GetWeddingOrThrow(weddingId);
+        EnsureWeddingExists(weddingId);
 
-        if (wedding.Budget != null)
+        var existing = _context.Budgets.FirstOrDefault(b => b.WeddingModelId == weddingId);
+        if (existing != null)
         {
             throw new ApplicationException("Budzet dla tego wesela juz istnieje. Uzyj endpointu PUT.");
         }
 
-        wedding.Budget = new BudgetModel
+        var budget = new BudgetModel
         {
+            WeddingModelId = weddingId,
             TotalBudget = dto.TotalBudget,
             Spent = 0,
             Remaining = dto.TotalBudget
         };
 
-        return wedding.Budget;
+        _context.Budgets.Add(budget);
+        _context.SaveChanges();
+
+        return budget;
     }
 
     public BudgetModel Update(int weddingId, UpdateBudgetDto dto)
     {
-        var wedding = GetWeddingOrThrow(weddingId);
+        EnsureWeddingExists(weddingId);
 
-        if (wedding.Budget == null)
-        {
-            throw new KeyNotFoundException("Budzet dla tego wesela nie jest ustawiony.");
-        }
+        var budget = _context.Budgets.FirstOrDefault(b => b.WeddingModelId == weddingId)
+                     ?? throw new KeyNotFoundException("Budzet dla tego wesela nie jest ustawiony.");
 
-        if (dto.TotalBudget < wedding.Budget.Spent)
+        if (dto.TotalBudget < budget.Spent)
         {
             throw new ApplicationException("Nowy budzet nie moze byc mniejszy od aktualnie wydanej kwoty.");
         }
 
-        wedding.Budget.TotalBudget = dto.TotalBudget;
-        wedding.Budget.Remaining = wedding.Budget.TotalBudget - wedding.Budget.Spent;
+        budget.TotalBudget = dto.TotalBudget;
+        budget.Remaining = budget.TotalBudget - budget.Spent;
 
-        return wedding.Budget;
+        _context.SaveChanges();
+
+        return budget;
     }
 
-    private static WeddingModel GetWeddingOrThrow(int weddingId)
+    private void EnsureWeddingExists(int weddingId)
     {
-        return WeddingData.Weddings.FirstOrDefault(w => w.Id == weddingId)
-               ?? throw new KeyNotFoundException($"Wesele o ID {weddingId} nie istnieje.");
+        var exists = _context.Weddings.AsNoTracking().Any(w => w.Id == weddingId);
+        if (!exists)
+        {
+            throw new KeyNotFoundException($"Wesele o ID {weddingId} nie istnieje.");
+        }
     }
 }
-
